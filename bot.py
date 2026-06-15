@@ -30,13 +30,13 @@ rss_urls = [
 ]
 
 # =========================
-# CHỐNG GỬI TIN TRÙNG
+# CHỐNG TRÙNG
 # =========================
 
 sent_links = set()
 
 # =========================
-# MAIN LOOP
+# MAIN
 # =========================
 
 for rss in rss_urls:
@@ -45,7 +45,6 @@ for rss in rss_urls:
     if not feed.entries:
         continue
 
-    # lấy tối đa 5 bài để tránh spam + tăng cơ hội bài mới
     for article in feed.entries[:5]:
 
         if article.link in sent_links:
@@ -53,21 +52,26 @@ for rss in rss_urls:
 
         sent_links.add(article.link)
 
-        prompt = f"""
-Bạn là biên tập viên du lịch chuyên nghiệp.
+        # =========================
+        # PROMPT AI (PRO STYLE)
+        # =========================
 
-Viết bài tin tức du lịch bằng tiếng Việt.
+        prompt = f"""
+Bạn là biên tập viên của một trang báo du lịch quốc tế.
+
+Viết bài bằng tiếng Việt.
 
 Yêu cầu:
 - Tiêu đề hấp dẫn như báo điện tử
-- Mở bài có hook thu hút
-- Nội dung 50–100 từ
+- Mở bài có hook thu hút người đọc
+- Nội dung 120–180 từ
 - Văn phong tự nhiên, không giống AI
 - Có góc nhìn du lịch thực tế
+- Chia đoạn rõ ràng
 - Kết thúc bằng 1 câu hỏi tương tác
-- Thêm 3 hashtag
+- Thêm 3 hashtag liên quan du lịch
 
-Tin:
+Tin gốc:
 {article.title}
 
 Nguồn:
@@ -76,22 +80,37 @@ Nguồn:
 
         response = model.generate_content(prompt)
 
-        content = f"""📰 {article.title}
+        # =========================
+        # FORMAT TELEGRAM (VNEXPRESS STYLE)
+        # =========================
 
+        content = f"""
+<b>📰 {article.title}</b>
+
+━━━━━━━━━━━━━━
 {response.text}
+━━━━━━━━━━━━━━
 
-🔗 {article.link}
+🔗 <a href="{article.link}">Xem nguồn bài viết</a>
+
+#travel #news #vietnam
 """
+
+        # =========================
+        # SEND TELEGRAM
+        # =========================
 
         requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
             data={
                 "chat_id": CHAT_ID,
-                "text": content[:4000]
+                "text": content[:4000],
+                "parse_mode": "HTML",
+                "disable_web_page_preview": False
             }
         )
 
-        # chỉ gửi 1–2 bài mỗi lần chạy để tránh spam
+        # chỉ gửi 1 bài mỗi lần chạy
         break
 
 print("Done")
