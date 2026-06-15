@@ -12,14 +12,14 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = "@taitravel"
 
 # =========================
-# GEMINI
+# GEMINI SETUP
 # =========================
 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 # =========================
-# RSS
+# RSS SOURCES
 # =========================
 
 rss_urls = [
@@ -30,7 +30,13 @@ rss_urls = [
 ]
 
 # =========================
-# LẤY TIN
+# CHỐNG GỬI TIN TRÙNG
+# =========================
+
+sent_links = set()
+
+# =========================
+# MAIN LOOP
 # =========================
 
 for rss in rss_urls:
@@ -39,19 +45,27 @@ for rss in rss_urls:
     if not feed.entries:
         continue
 
-    article = feed.entries[0]
+    # lấy tối đa 5 bài để tránh spam + tăng cơ hội bài mới
+    for article in feed.entries[:5]:
 
-    prompt = f"""
-Bạn là biên tập viên của một trang tin du lịch.
+        if article.link in sent_links:
+            continue
 
-Viết bằng tiếng Việt.
+        sent_links.add(article.link)
+
+        prompt = f"""
+Bạn là biên tập viên du lịch chuyên nghiệp.
+
+Viết bài tin tức du lịch bằng tiếng Việt.
 
 Yêu cầu:
-- Tiêu đề hấp dẫn
-- Tóm tắt ngắn
-- Nội dung khoảng 50-100 từ
-- Văn phong chuyên nghiệp
-- 3 hashtag
+- Tiêu đề hấp dẫn như báo điện tử
+- Mở bài có hook thu hút
+- Nội dung 50–100 từ
+- Văn phong tự nhiên, không giống AI
+- Có góc nhìn du lịch thực tế
+- Kết thúc bằng 1 câu hỏi tương tác
+- Thêm 3 hashtag
 
 Tin:
 {article.title}
@@ -60,23 +74,24 @@ Nguồn:
 {article.link}
 """
 
-    response = model.generate_content(prompt)
+        response = model.generate_content(prompt)
 
-    content = f"""📰 {article.title}
+        content = f"""📰 {article.title}
 
 {response.text}
 
 🔗 {article.link}
 """
 
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data={
-            "chat_id": CHAT_ID,
-            "text": content[:4000]
-        }
-    )
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            data={
+                "chat_id": CHAT_ID,
+                "text": content[:4000]
+            }
+        )
 
-    break
+        # chỉ gửi 1–2 bài mỗi lần chạy để tránh spam
+        break
 
 print("Done")
