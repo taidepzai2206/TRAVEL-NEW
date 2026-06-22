@@ -1,4 +1,4 @@
-```python
+python
 import requests
 import feedparser
 import google.generativeai as genai
@@ -173,4 +173,3 @@ response = requests.post(
 
 print("Telegram Status:", response.status_code)
 print("Done")
-```
